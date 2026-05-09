@@ -37,7 +37,7 @@ if errorlevel 1 (
 echo [2/3] CMake configure — vcpkg toolchain, x64-windows-static, /MT...
 pushd "%ROOT%"
 "%CMAKE_EXE%" -B build_static -S . ^
-    -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT:\=/%/scripts/buildsystems/vcpkg.cmake ^
+    "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" ^
     -DVCPKG_TARGET_TRIPLET=x64-windows-static ^
     -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
     -DCMAKE_BUILD_TYPE=Release
@@ -60,7 +60,7 @@ set "BUILT_EXE="
 if exist "%ROOT%\build_static\Release\CraftPacker.exe" set "BUILT_EXE=%ROOT%\build_static\Release\CraftPacker.exe"
 if not defined BUILT_EXE if exist "%ROOT%\build_static\CraftPacker.exe" set "BUILT_EXE=%ROOT%\build_static\CraftPacker.exe"
 if not defined BUILT_EXE (
-    echo ERROR: CraftPacker.exe not found under build_static (Ninja uses build_static\; VS multi-config uses build_static\Release\).
+    echo ERROR: CraftPacker.exe not found — expected build_static\CraftPacker.exe or build_static\Release\CraftPacker.exe.
     goto :fail
 )
 
@@ -69,11 +69,7 @@ echo ============================================
 echo Build output: %BUILT_EXE%
 echo ============================================
 echo Verifying dependencies (expect only system DLLs)...
-for %%I in ("%BUILT_EXE%") do (
-    pushd "%%~dpI"
-    dumpbin /dependents "%%~nxI" 2>nul | findstr /i "\.dll"
-    popd
-)
+dumpbin /dependents "%BUILT_EXE%" 2>nul | findstr /i ".dll"
 
 echo.
 if not exist "%ROOT%\dist" mkdir "%ROOT%\dist"

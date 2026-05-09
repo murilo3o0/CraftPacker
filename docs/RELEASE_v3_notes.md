@@ -1,12 +1,9 @@
-CraftPacker **v3.0.0** — dependency resolution, conflict checks, `.mrpack` export, folder import, debug reports.
+CraftPacker **v3** — dependency resolution, conflict checks, `.mrpack` and CurseForge export, folder import, debug reports.
 
-### Downloads
+### Releases
 
-- **`CraftPacker_v3.exe`** — Recommended. Single static executable (Qt and MSVC CRT linked in; **no DLL folder**).
-- **`CraftPacker_v3_Portable.zip`** — Optional fallback: MSVC + shared Qt layout produced with `scripts/Build-DynamicRelease.ps1` (exe + DLLs/plugins). Extract **the whole folder** before running.
+Stable GitHub [**tag `v3`**](https://github.com/helloworldx64/CraftPacker/releases/tag/v3) ships **`CraftPacker_v3.exe`** (static MSVC) plus optional **`CraftPacker_v3_Portable.zip`** (shared Qt). **Rebuild from `main`** to match latest behaviour; CMake **`project(VERSION …)`** (see root **`CMakeLists.txt`**) drives the semver shown in **About**/`QApplication::applicationVersion` and in Modrinth-related **`User-Agent`** strings (**`helloworldx64/CraftPacker/`** + that version).
 
-**Modrinth** requests use **`User-Agent: helloworldx64/CraftPacker/3.0.0`**.
-
-Official source revision: **`main`** on this repository (“Source code” zip/tar from GitHub applies to **tag **`v3`**, not **`main`** — use **Browse files** / clone for newest commits).
+**3.0.1** Patch highlights: corrected Modrinth **`.mrpack`** index semantics (dependency keys, SHA1/SHA512, env, HTTPS downloads, overrides tree) and CurseForge **`manifest.json`** (**`projectID`**, **`fileID`**, loader **`id`**). Older **3.0.0** bullets still apply otherwise.
 
 Unsigned Windows binaries: use **More info** → **Run anyway** when SmartScreen appears.

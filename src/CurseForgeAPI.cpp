@@ -3,6 +3,7 @@
 
 // Generated at build time by obfuscate_key.py
 #include "api_keys.h"
+#include "AppVersion.h"
 
 #include <QDebug>
 #include <QUrlQuery>
@@ -59,7 +60,7 @@ QNetworkReply* CurseForgeAPI::get(const QUrl& url) {
 
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader,
-        "helloworldx64/CraftPacker/3.0.0");
+        craftPackerModrinthUserAgent());
     request.setRawHeader("Accept", "application/json");
     request.setRawHeader(API_KEY_HEADER.toUtf8(), activeApiKey().toUtf8());
     return m_nam->get(request);

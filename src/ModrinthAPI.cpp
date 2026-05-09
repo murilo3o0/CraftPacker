@@ -2,6 +2,7 @@
 #include "CacheManager.h"
 #include "AsyncWorker.h"
 #include "StringCleaner.h"
+#include "AppVersion.h"
 #include <QEventLoop>
 #include <QDebug>
 
@@ -38,7 +39,7 @@ QNetworkReply* ModrinthAPI::get(const QUrl& url) {
     rateLimitWait();
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader,
-        "helloworldx64/CraftPacker/3.0.0");
+        craftPackerModrinthUserAgent());
     request.setRawHeader("Accept", "application/json");
     return m_nam->get(request);
 }

@@ -212,7 +212,7 @@ if (-not $UseStaticQt) {
 }
 
 # Create version info
-$version = "3.0.0"
+$version = "3.0.1"
 "Build: $BuildConfig`nDate: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`nVersion: $version" | Out-File "$OutputDir\build_info.txt"
 
 # Zip the output

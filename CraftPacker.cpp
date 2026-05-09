@@ -50,6 +50,7 @@
 #include "src/miniz.h"
 #include "src/DebuggerDashboard.h"
 #include "src/JarMetadataExtractor.h"
+#include "src/AppVersion.h"
 
 // ============================================================
 // RateLimiter
@@ -84,8 +85,7 @@ void DownloadWorker::process() {
     QEventLoop loop;
 
     QNetworkRequest request(m_modInfo.downloadUrl);
-    request.setHeader(QNetworkRequest::UserAgentHeader,
-        "helloworldx64/CraftPacker/3.0.0");
+    request.setHeader(QNetworkRequest::UserAgentHeader, craftPackerModrinthUserAgent());
 
     QNetworkReply *reply = manager.get(request);
     if (!reply) { emit finished(iid, "Network Error"); return; }
@@ -210,7 +210,7 @@ CraftPacker::~CraftPacker() = default;
 // UI Setup — SINGLE unified results table with QSplitter
 // ============================================================
 void CraftPacker::setupUi() {
-    setWindowTitle("CraftPacker v3 - Modpack Creation Studio");
+    setWindowTitle(QStringLiteral("CraftPacker %1 - Modpack Creation Studio").arg(craftPackerVersionString()));
     setMinimumSize(1400, 850);
     setObjectName("mainWindow");
 
@@ -250,7 +250,7 @@ void CraftPacker::setupUi() {
         
         QTextStream out(&f);
         out << "========================================\n";
-        out << "CraftPacker v3 - Search Results Debug\n";
+        out << "CraftPacker " << craftPackerVersionString() << " - Search Results Debug\n";
         out << "Generated: " << QDateTime::currentDateTime().toString(Qt::ISODate) << "\n";
         out << "========================================\n\n";
         
@@ -667,7 +667,7 @@ void CraftPacker::setupUi() {
 
     // Status bar
     statusBar()->showMessage("Ready");
-    m_statusLabel = new QLabel("CraftPacker v3");
+    m_statusLabel = new QLabel(QStringLiteral("CraftPacker %1").arg(craftPackerVersionString()));
     m_statusLabel->setStyleSheet("padding:2px 8px;");
     statusBar()->addPermanentWidget(m_statusLabel);
 
@@ -1148,8 +1148,7 @@ void CraftPacker::findOneMod(QString name, QString loader, QString version) {
     auto performRequest = [&](const QUrl& url) -> std::optional<QJsonDocument> {
         m_rateLimiter.wait();
         QNetworkRequest req(url);
-        req.setHeader(QNetworkRequest::UserAgentHeader,
-            "helloworldx64/CraftPacker/3.0.0");
+        req.setHeader(QNetworkRequest::UserAgentHeader, craftPackerModrinthUserAgent());
         QNetworkReply *reply = manager.get(req);
         QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         loop.exec();
@@ -1919,8 +1918,7 @@ std::optional<ModInfo> CraftPacker::getModInfo(const QString& projectIdOrSlug,
 
     auto performRequest = [&](const QUrl& url) -> std::optional<QByteArray> {
         QNetworkRequest req(url);
-        req.setHeader(QNetworkRequest::UserAgentHeader,
-            "helloworldx64/CraftPacker/3.0.0");
+        req.setHeader(QNetworkRequest::UserAgentHeader, craftPackerModrinthUserAgent());
         QNetworkReply *reply = manager.get(req);
         QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         loop.exec();
@@ -2142,8 +2140,7 @@ std::optional<ModInfo> CraftPacker::resolveDependencyLocally(const QString& proj
     QEventLoop loop;
     auto req = [&](const QUrl& url) -> std::optional<QByteArray> {
         QNetworkRequest r(url);
-        r.setHeader(QNetworkRequest::UserAgentHeader,
-            "helloworldx64/CraftPacker/3.0.0");
+        r.setHeader(QNetworkRequest::UserAgentHeader, craftPackerModrinthUserAgent());
         QNetworkReply* reply = mgr.get(r);
         QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         loop.exec();
@@ -2719,8 +2716,7 @@ void CraftPacker::updateModInfoPanel(QTreeWidgetItem *current, QTreeWidgetItem *
                 QEventLoop loop;
 
                 QNetworkRequest iconReq(QUrl(mod.iconUrl));
-                iconReq.setHeader(QNetworkRequest::UserAgentHeader,
-                    "helloworldx64/CraftPacker/3.0.0");
+                iconReq.setHeader(QNetworkRequest::UserAgentHeader, craftPackerModrinthUserAgent());
                 QNetworkReply* iconReply = manager.get(iconReq);
                 QObject::connect(iconReply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
                 loop.exec();
@@ -2907,7 +2903,10 @@ void CraftPacker::closeEvent(QCloseEvent* event) {
 // URL OPENERS
 // ============================================================
 void CraftPacker::openGitHub() { QDesktopServices::openUrl(QUrl("https://github.com/helloworldx64/CraftPacker")); }
-void CraftPacker::openPayPal() { QDesktopServices::openUrl(QUrl("https://www.paypal.com/donate/?business=4UZWFGSW6C478&no_recurring=0&item_name=Donate+to+helloworldx64¤cy_code=USD")); }
+void CraftPacker::openPayPal() {
+    QDesktopServices::openUrl(QUrl(QLatin1String(
+        "https://www.paypal.com/donate/?business=4UZWFGSW6C478&no_recurring=0&item_name=Donate+to+helloworldx64&currency_code=USD")));
+}
 
 // ============================================================
 // main()
@@ -2915,7 +2914,7 @@ void CraftPacker::openPayPal() { QDesktopServices::openUrl(QUrl("https://www.pay
 int main(int argc, char *argv[]) {
     QCoreApplication::setOrganizationName("CraftPacker");
     QCoreApplication::setApplicationName("CraftPacker-v3");
-    QCoreApplication::setApplicationVersion("3.0.0");
+    QCoreApplication::setApplicationVersion(craftPackerVersionString());
 
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon());

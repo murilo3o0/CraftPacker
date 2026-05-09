@@ -1,5 +1,6 @@
 #include "FolderDebugger.h"
 #include "miniz.h"
+#include "AppVersion.h"
 
 #include <QCryptographicHash>
 #include <QDirIterator>
@@ -57,7 +58,7 @@ QString FolderDebugger::lookupHashOnModrinth(const QString& sha1Hash,
 
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::UserAgentHeader,
-        "helloworldx64/CraftPacker/3.0.0");
+        craftPackerModrinthUserAgent());
     req.setRawHeader("Accept", "application/json");
 
     QNetworkReply *reply = manager.get(req);

@@ -114,7 +114,11 @@ $zipPath = Join-Path $SourceRoot "dist\CraftPacker_Windows_portable.zip"
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 Compress-Archive -LiteralPath $deploy -DestinationPath $zipPath -Force
 
+$releaseZip = Join-Path $SourceRoot "dist\CraftPacker_v3_Portable.zip"
+Copy-Item -LiteralPath $zipPath -Destination $releaseZip -Force
+
 Write-Host ""
 Write-Host "Done. Run: $deploy\CraftPacker.exe"
 Write-Host "Zip:      $zipPath"
+Write-Host "Release:  $releaseZip (same contents; use for GitHub assets)"
 Get-Item (Join-Path $deploy "CraftPacker.exe") | Format-List FullName, Length, LastWriteTime

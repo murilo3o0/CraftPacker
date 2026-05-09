@@ -127,5 +127,5 @@ See the [Qt deployment documentation](https://doc.qt.io/qt-6/windows-deployment.
 
 1. Bump version strings if needed (`CMakeLists.txt`, app metadata).
 2. Preferred: run **`build_static.bat`**; confirm **`dist\CraftPacker_v3.exe`** and **`dumpbin`** output (no third‑party DLLs).
-3. Optional: regenerate **`CraftPacker_v3_Portable.zip`** with **`scripts\Build-DynamicRelease.ps1`**, rename output to **`CraftPacker_v3_Portable.zip`** if needed.
+3. Optional: run **`scripts\Build-DynamicRelease.ps1`**; it writes **`dist\CraftPacker_Windows_portable.zip`** and a duplicate **`dist\CraftPacker_v3_Portable.zip`** for GitHub uploads.
 4. On GitHub **Releases**, attach **`CraftPacker_v3.exe`** (primary download) and the portable ZIP as a fallback. GitHub automatically provides **Source code (zip)** / **tar.gz** for the tag snapshot.

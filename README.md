@@ -94,7 +94,7 @@ Then use Qt’s **`windeployqt`** on **`build/CraftPacker.exe`** before running 
 3. **Search:** click **Search Mods**. Use the status column (**Available**, **Soft Overlap**, **Hard Conflict**, **Loader incompatible**, etc.) and the side/details panel for explanations.
 4. **Export or download:** **Download** selected or all mods, or use export options (e.g. `.mrpack`, server-oriented pack)—see [**docs/USER_GUIDE.md**](docs/USER_GUIDE.md) for every control.
 
-API traffic to Modrinth uses **`User-Agent: helloworldx64/CraftPacker/3.0.0`** (required by their API guidelines).
+Outbound Modrinth-facing HTTP requests identify the application as **`helloworldx64/CraftPacker/`** suffixed by the semver in **`CMakeLists.txt`** **`project(VERSION …)`** (currently **3.0.1**), consistent with Modrinth's API guidelines. The same **`User-Agent`** is used where appropriate for Fabric/Quilt meta and other downloader paths.
 
 ## Support the project
 
