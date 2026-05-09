@@ -14,6 +14,15 @@
 #include <QDebug>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QEventLoop>
+#include <QJsonParseError>
+#include <QDirIterator>
+#include <QUrl>
+#include <QJsonArray>
+#include <QObject>
 
 PackExporter& PackExporter::instance() {
     static PackExporter inst;
@@ -46,6 +55,66 @@ bool addLocalFileToZip(mz_zip_archive* zip, const QString& archivePath, const QS
     return addFileToZip(zip, archivePath, data);
 }
 
+/** Recursively pack `localRoot` into ZIP paths prefixed with `archiveRoot` using forward slashes. */
+bool addDirectoryTreeToZip(mz_zip_archive* zip, const QString& localRoot, const QString& archiveRoot) {
+    QDir root(localRoot);
+    if (!root.exists()) return true;
+    QString normRoot = root.canonicalPath();
+    QDirIterator it(normRoot,
+        QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot,
+        QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        QFileInfo fi = it.fileInfo();
+        if (fi.isDir()) continue;
+        QString rel = QDir(normRoot).relativeFilePath(fi.absoluteFilePath());
+        rel.replace(QChar(QLatin1Char('\\')), QLatin1Char('/'));
+        if (rel.contains(QLatin1String("..")) || rel.startsWith(QLatin1Char('/'))) {
+            qWarning().noquote() << "Skipping unsafe overrides path:" << rel;
+            continue;
+        }
+        const QString arc = archiveRoot + rel;
+        if (!addLocalFileToZip(zip, arc, fi.absoluteFilePath())) return false;
+    }
+    return true;
+}
+
+QString mrpackDepsKey(const QString& loader) {
+    const QString l = loader.trimmed().toLower();
+    if (l == QLatin1String("fabric")) return QStringLiteral("fabric-loader");
+    if (l == QLatin1String("quilt")) return QStringLiteral("quilt-loader");
+    if (l == QLatin1String("forge")) return QStringLiteral("forge");
+    if (l == QLatin1String("neoforge")) return QStringLiteral("neoforge");
+    return {};
+}
+
+QString normalizedEnvSide(const QString& raw, const QString& fallback) {
+    QString s = raw.trimmed().toLower();
+    if (s.isEmpty())
+        return fallback;
+    if (s == QLatin1String("required") || s == QLatin1String("optional") || s == QLatin1String("unsupported"))
+        return s;
+    return fallback;
+}
+
+QString curseForgeModLoaderManifestId(const QString& loader,
+                                     const QString& mcVersion,
+                                     const QString& loaderVersion) {
+    const QString lv = loaderVersion.trimmed();
+    if (lv.isEmpty())
+        return {};
+    const QString l = loader.trimmed().toLower();
+    if (l == QLatin1String("fabric"))
+        return QStringLiteral("fabric-%1").arg(lv);
+    if (l == QLatin1String("quilt"))
+        return QStringLiteral("quilt-%1").arg(lv);
+    if (l == QLatin1String("forge"))
+        return QStringLiteral("forge-%1").arg(lv);
+    if (l == QLatin1String("neoforge"))
+        return QStringLiteral("neoforge-%1-%2").arg(mcVersion.trimmed(), lv);
+    return {};
+}
+
 } // anonymous namespace
 
 // ============================================================
@@ -56,7 +125,7 @@ QString PackExporter::sha1Hash(const QString& filePath) {
     if (!file.open(QIODevice::ReadOnly)) return {};
     QCryptographicHash hash(QCryptographicHash::Sha1);
     if (hash.addData(&file)) {
-        return hash.result().toHex();
+        return QString::fromLatin1(hash.result().toHex()).toLower();
     }
     return {};
 }
@@ -66,7 +135,7 @@ QString PackExporter::sha512Hash(const QString& filePath) {
     if (!file.open(QIODevice::ReadOnly)) return {};
     QCryptographicHash hash(QCryptographicHash::Sha512);
     if (hash.addData(&file)) {
-        return hash.result().toHex();
+        return QString::fromLatin1(hash.result().toHex()).toLower();
     }
     return {};
 }
@@ -77,103 +146,168 @@ QString PackExporter::sha512Hash(const QString& filePath) {
 QJsonObject PackExporter::generateMrpackIndex(const QVector<ModInfo>& mods,
                                                const ExportOptions& options) {
     QJsonObject index;
-    index["formatVersion"] = 1;
-    index["game"] = "minecraft";
-    index["versionId"] = options.packVersion;
-    index["name"] = options.packName;
-    index["summary"] = options.description;
-    index["author"] = options.author;
-    index["date"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    index.insert(QStringLiteral("formatVersion"), 1);
+    index.insert(QStringLiteral("game"), QStringLiteral("minecraft"));
+    index.insert(QStringLiteral("versionId"), options.packVersion);
+    index.insert(QStringLiteral("name"), options.packName);
+    index.insert(QStringLiteral("summary"), options.description);
+    index.insert(QStringLiteral("author"), options.author);
+    index.insert(QStringLiteral("date"),
+                 QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-    // Dependencies section
+    const QString dk = mrpackDepsKey(options.loader);
     QJsonObject deps;
-    deps["minecraft"] = options.mcVersion;
-    deps[options.loader] = options.loaderVersion;
-    index["dependencies"] = deps;
+    deps.insert(QStringLiteral("minecraft"), options.mcVersion.trimmed());
+    if (!dk.isEmpty() && !options.loaderVersion.trimmed().isEmpty())
+        deps.insert(dk, options.loaderVersion.trimmed());
+    index.insert(QStringLiteral("dependencies"), deps);
 
-    // Files section
-    QJsonArray files;
+    QJsonArray fileArr;
     for (const auto& mod : mods) {
-        QJsonObject file;
-        file["path"] = "mods/" + mod.filename;
-        file["downloads"] = QJsonArray({mod.downloadUrl});
-        file["fileSize"] = (qint64)mod.fileSize;
+        if (mod.filename.trimmed().isEmpty())
+            continue;
 
-        // Hashes
-        QJsonObject hashes;
-        hashes["sha512"] = sha512Hash(mod.downloadUrl);
-        // For proper hashes we'd need to download first, but the spec
-        // allows omitting them for remote files
-        file["hashes"] = hashes;
+        QString rel = QStringLiteral("mods/%1").arg(mod.filename);
+        rel.replace(QChar(QLatin1Char('\\')), QLatin1Char('/'));
+        if (rel.contains(QLatin1String(".."))) {
+            qWarning().noquote() << ".mrpack: skipping unsafe path" << rel;
+            continue;
+        }
 
-        // Environment tags (Phase 4)
+        QString sha1h = mod.sha1.trimmed().toLower();
+        QString sha512h = mod.sha512.trimmed().toLower();
+
+        if (sha1h.isEmpty() || sha512h.isEmpty()) {
+            if (!options.localModsDirectory.trimmed().isEmpty()) {
+                const QString jar =
+                    QDir::cleanPath(options.localModsDirectory.trimmed() + QLatin1Char('/') + mod.filename);
+                if (QFile::exists(jar)) {
+                    if (sha1h.isEmpty()) sha1h = PackExporter::sha1Hash(jar);
+                    if (sha512h.isEmpty()) sha512h = PackExporter::sha512Hash(jar);
+                }
+            }
+        }
+
+        if (sha1h.isEmpty() || sha512h.isEmpty())
+            continue;
+
+        const QUrl url(mod.downloadUrl);
+        if (!url.isValid() || url.scheme().toLower() != QLatin1String("https"))
+            continue;
+
+        QJsonObject fileObj;
+        fileObj.insert(QStringLiteral("path"), rel);
+        QJsonObject hashesObj;
+        hashesObj.insert(QStringLiteral("sha1"), sha1h);
+        hashesObj.insert(QStringLiteral("sha512"), sha512h);
+        fileObj.insert(QStringLiteral("hashes"), hashesObj);
+        fileObj.insert(QStringLiteral("downloads"),
+                        QJsonArray{ QString::fromUtf8(url.toEncoded(QUrl::FullyEncoded)) });
+
+        qint64 declaredSize = mod.fileSize;
+        if (declaredSize <= 0 && !options.localModsDirectory.trimmed().isEmpty()) {
+            QFileInfo lf(QDir(options.localModsDirectory.trimmed()).filePath(mod.filename));
+            if (lf.exists() && lf.isFile())
+                declaredSize = lf.size();
+        }
+        if (declaredSize > 0)
+            fileObj.insert(QStringLiteral("fileSize"), declaredSize);
+
         QJsonObject env;
-        env["client"] = mod.clientSide.isEmpty() ? "required" : mod.clientSide;
-        env["server"] = mod.serverSide.isEmpty() ? "required" : mod.serverSide;
-        file["env"] = env;
+        env.insert(QStringLiteral("client"),
+            normalizedEnvSide(mod.clientSide, QStringLiteral("required")));
+        env.insert(QStringLiteral("server"),
+            normalizedEnvSide(mod.serverSide, QStringLiteral("required")));
+        fileObj.insert(QStringLiteral("env"), env);
 
-        files.append(file);
+        fileArr.append(fileObj);
     }
-    index["files"] = files;
-
+    index.insert(QStringLiteral("files"), fileArr);
     return index;
 }
 
 bool PackExporter::exportToMrpack(const QVector<ModInfo>& mods,
                                    const ExportOptions& options,
                                    QString* errorOut) {
-    emit exportProgress(0, "Preparing .mrpack export...");
+    emit exportProgress(0, QStringLiteral("Preparing .mrpack export..."));
+
+    const QString dk = mrpackDepsKey(options.loader);
+    if (dk.isEmpty()) {
+        const QString msg = QStringLiteral(
+            "Unsupported loader for .mrpack. Use Fabric, Quilt, Forge, or NeoForge.");
+        if (errorOut) *errorOut = msg;
+        emit exportFinished(false, {}, msg);
+        return false;
+    }
+    if (options.loaderVersion.trimmed().isEmpty()) {
+        const QString msg = QStringLiteral(
+            "Loader library version missing (required in modrinth.index.json dependencies).");
+        if (errorOut) *errorOut = msg;
+        emit exportFinished(false, {}, msg);
+        return false;
+    }
 
     QString outputPath = options.outputPath;
     if (outputPath.isEmpty()) {
         outputPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)
-                     + "/" + options.packName + ".mrpack";
+                     + QStringLiteral("/") + options.packName + QStringLiteral(".mrpack");
     }
-    if (!outputPath.endsWith(".mrpack")) {
-        outputPath += ".mrpack";
-    }
+    if (!outputPath.endsWith(QStringLiteral(".mrpack"), Qt::CaseInsensitive))
+        outputPath += QStringLiteral(".mrpack");
 
-    // Create zip archive
     mz_zip_archive zip;
     memset(&zip, 0, sizeof(zip));
     mz_bool status = mz_zip_writer_init_file(&zip, outputPath.toUtf8().constData(), 0);
     if (!status) {
-        if (errorOut) *errorOut = "Failed to create zip file: " + outputPath;
-        emit exportFinished(false, outputPath, "Failed to create zip file");
+        if (errorOut)
+            *errorOut = QStringLiteral("Failed to create zip file: ") + outputPath;
+        emit exportFinished(false, outputPath, QStringLiteral("Failed to create zip"));
         return false;
     }
 
-    emit exportProgress(20, "Writing index.json...");
-    // Add modrinth.index.json
+    emit exportProgress(18, QStringLiteral("Building modrinth.index.json..."));
     QJsonObject index = generateMrpackIndex(mods, options);
-    QByteArray indexData = QJsonDocument(index).toJson(QJsonDocument::Indented);
-    if (!addFileToZip(&zip, "modrinth.index.json", indexData)) {
+
+    QJsonArray fileArr = index.value(QStringLiteral("files")).toArray();
+    if (fileArr.isEmpty()) {
         mz_zip_writer_end(&zip);
         QFile::remove(outputPath);
-        if (errorOut) *errorOut = "Failed to add index.json to archive";
+        const QString msg = QStringLiteral(
+            "Cannot build .mrpack: each mod entry needs HTTPS download URL plus sha1 and sha512 "
+            "(from Modrinth API or from hashing local jars in your download folder).");
+        if (errorOut) *errorOut = msg;
+        emit exportFinished(false, outputPath, msg);
         return false;
     }
 
-    emit exportProgress(40, "Adding overrides...");
-    // Add overrides if config directory exists
-    if (options.includeConfigs && !options.configOverridesPath.isEmpty()) {
-        QDir configDir(options.configOverridesPath);
-        if (configDir.exists()) {
-            auto files = configDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-            for (const auto& fi : files) {
-                QString relPath = "overrides/" + configDir.relativeFilePath(fi.absoluteFilePath());
-                if (fi.isFile()) {
-                    addLocalFileToZip(&zip, relPath, fi.absoluteFilePath());
-                }
-            }
+    QByteArray indexData = QJsonDocument(index).toJson(QJsonDocument::Indented);
+    if (!addFileToZip(&zip, QStringLiteral("modrinth.index.json"), indexData)) {
+        mz_zip_writer_end(&zip);
+        QFile::remove(outputPath);
+        if (errorOut) *errorOut = QStringLiteral("Failed to embed modrinth.index.json");
+        emit exportFinished(false, outputPath, QStringLiteral("Index zip write failed"));
+        return false;
+    }
+
+    emit exportProgress(42, QStringLiteral("Adding overrides..."));
+    if (options.includeConfigs && !options.configOverridesPath.trimmed().isEmpty()
+        && QFileInfo::exists(options.configOverridesPath.trimmed())) {
+        if (!addDirectoryTreeToZip(&zip,
+                options.configOverridesPath.trimmed(),
+                QStringLiteral("overrides/"))) {
+            mz_zip_writer_end(&zip);
+            QFile::remove(outputPath);
+            if (errorOut) *errorOut = QStringLiteral("Failed to zip overrides/");
+            emit exportFinished(false, outputPath, QStringLiteral("overrides zip failed"));
+            return false;
         }
     }
 
-    emit exportProgress(80, "Download complete, finalizing...");
+    emit exportProgress(85, QStringLiteral("Finalizing .mrpack archive..."));
     mz_zip_writer_finalize_archive(&zip);
     mz_zip_writer_end(&zip);
 
-    emit exportProgress(100, "Export complete!");
+    emit exportProgress(100, QStringLiteral("Export complete."));
     emit exportFinished(true, outputPath, QString());
     return true;
 }
@@ -182,95 +316,156 @@ bool PackExporter::exportToMrpack(const QVector<ModInfo>& mods,
 // CURSEFORGE .zip GENERATION
 // ============================================================
 QJsonObject PackExporter::generateCFManifest(const QVector<ModInfo>& mods,
-                                              const ExportOptions& options) {
+                                              const ExportOptions& options,
+                                              QString* errorMessage) {
     QJsonObject manifest;
-    manifest["manifestType"] = "minecraftModpack";
-    manifest["manifestVersion"] = 1;
-    manifest["name"] = options.packName;
-    manifest["version"] = options.packVersion;
-    manifest["author"] = options.author;
-    manifest["overrides"] = "overrides";
+    manifest.insert(QStringLiteral("manifestType"), QStringLiteral("minecraftModpack"));
+    manifest.insert(QStringLiteral("manifestVersion"), 1);
+    manifest.insert(QStringLiteral("name"), options.packName);
+    manifest.insert(QStringLiteral("version"), options.packVersion);
+    manifest.insert(QStringLiteral("author"), options.author);
+    manifest.insert(QStringLiteral("overrides"), QStringLiteral("overrides"));
 
-    // Minecraft section
+    const QString loaderManifestId =
+        curseForgeModLoaderManifestId(options.loader, options.mcVersion, options.loaderVersion);
+
     QJsonObject mc;
-    mc["version"] = options.mcVersion;
-    QJsonObject loaders;
-    loaders["id"] = options.loader + "-" + options.loaderVersion;
-    loaders["primary"] = true;
-    mc["modLoaders"] = QJsonArray({loaders});
-    manifest["minecraft"] = mc;
+    mc.insert(QStringLiteral("version"), options.mcVersion.trimmed());
+    QJsonObject loaderObj;
+    loaderObj.insert(QStringLiteral("primary"), true);
 
-    // Files section (for CurseForge, we need projectID + fileID)
-    // Since we might not have CF file IDs (if mods came from Modrinth),
-    // we populate what we can
-    QJsonArray files;
-    for (const auto& mod : mods) {
-        QJsonObject file;
-        file["projectID"] = mod.projectId.toInt();
-        file["fileID"] = 0; // Would need CF API for this
-        file["required"] = true;
-        files.append(file);
+    if (loaderManifestId.isEmpty()) {
+        if (errorMessage) {
+            *errorMessage =
+                QStringLiteral(
+                    "CurseForge manifest needs a loader id (e.g. fabric-0.15.11, forge-47.2.0, "
+                    "neoforge-{mc}-{version}). Specify loader version.");
+        }
+        return {};
     }
-    manifest["files"] = files;
+    loaderObj.insert(QStringLiteral("id"), loaderManifestId);
+    mc.insert(QStringLiteral("modLoaders"), QJsonArray({loaderObj}));
+    manifest.insert(QStringLiteral("minecraft"), mc);
 
+    QJsonArray filesArr;
+    for (const auto& mod : mods) {
+        bool okPid = false;
+        const qint64 pid = mod.projectId.trimmed().toLongLong(&okPid);
+        if (!okPid || pid <= 0)
+            continue;
+        if (mod.curseforgeFileId <= 0)
+            continue;
+        QJsonObject fileObj;
+        fileObj.insert(QStringLiteral("projectID"), pid);
+        fileObj.insert(QStringLiteral("fileID"), mod.curseforgeFileId);
+        fileObj.insert(QStringLiteral("required"), true);
+        filesArr.append(fileObj);
+    }
+    manifest.insert(QStringLiteral("files"), filesArr);
+
+    if (filesArr.isEmpty()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral(
+                "Every CurseForge pack entry requires both CurseForge projectID and fileID. "
+                "Mods resolved only via Modrinth cannot be exported in this format — export .mrpack instead.");
+        }
+        return {};
+    }
+
+    if (errorMessage)
+        errorMessage->clear();
     return manifest;
 }
 
 QString PackExporter::generateModListHtml(const QVector<ModInfo>& mods) {
     QString html;
-    html += "<ul>\n";
+    html += QStringLiteral("<ul>\n");
     for (const auto& m : mods) {
-        html += QString("    <li><a href=\"https://modrinth.com/mod/%1\">%2</a></li>\n")
-                    .arg(m.projectId, m.name);
+        bool ok = false;
+        m.projectId.trimmed().toLongLong(&ok);
+        QString href;
+        if (ok)
+            href = QStringLiteral("https://www.curseforge.com/minecraft/mc-mods/%1").arg(m.projectId);
+        else if (!m.slug.trimmed().isEmpty())
+            href = QStringLiteral("https://modrinth.com/mod/%1").arg(m.slug);
+        else
+            href = QStringLiteral("https://modrinth.com/mod/%1").arg(m.projectId);
+        html +=
+            QStringLiteral("    <li><a href=\"%1\">%2</a></li>\n").arg(href, m.name.toHtmlEscaped());
     }
-    html += "</ul>\n";
+    html += QStringLiteral("</ul>\n");
     return html;
 }
 
 bool PackExporter::exportToCurseForge(const QVector<ModInfo>& mods,
-                                       const ExportOptions& options,
-                                       QString* errorOut) {
-    emit exportProgress(0, "Preparing CurseForge .zip export...");
+                                      const ExportOptions& options,
+                                      QString* errorOut) {
+    emit exportProgress(0, QStringLiteral("Preparing CurseForge modpack.zip..."));
 
     QString outputPath = options.outputPath;
     if (outputPath.isEmpty()) {
         outputPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)
-                     + "/" + options.packName + "-cf.zip";
+                     + QStringLiteral("/") + options.packName + QStringLiteral("-cf.zip");
     }
-    if (!outputPath.endsWith(".zip")) outputPath += ".zip";
+    if (!outputPath.endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive))
+        outputPath += QStringLiteral(".zip");
 
-    mz_zip_archive zip;
-    memset(&zip, 0, sizeof(zip));
-    if (!mz_zip_writer_init_file(&zip, outputPath.toUtf8().constData(), 0)) {
-        if (errorOut) *errorOut = "Failed to create zip file";
+    QString mfErr;
+    QJsonObject manifest = generateCFManifest(mods, options, &mfErr);
+    if (manifest.isEmpty()) {
+        if (errorOut && !mfErr.isEmpty())
+            *errorOut = mfErr;
+        emit exportFinished(false, outputPath, mfErr);
         return false;
     }
 
-    emit exportProgress(25, "Writing manifest.json...");
-    QJsonObject manifest = generateCFManifest(mods, options);
-    addFileToZip(&zip, "manifest.json",
-                 QJsonDocument(manifest).toJson(QJsonDocument::Indented));
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    mz_bool mzOk = mz_zip_writer_init_file(&zip, outputPath.toUtf8().constData(), 0);
+    if (!mzOk) {
+        if (errorOut) *errorOut = QStringLiteral("Failed to create zip file");
+        emit exportFinished(false, outputPath, QStringLiteral("Zip init failed"));
+        return false;
+    }
 
-    emit exportProgress(50, "Writing modlist.html...");
-    QString modlist = "<html><body><h1>" + options.packName + " Mod List</h1>\n"
-                      + generateModListHtml(mods)
-                      + "</body></html>";
-    addFileToZip(&zip, "modlist.html", modlist.toUtf8());
+    emit exportProgress(25, QStringLiteral("Writing manifest.json..."));
+    QByteArray mj = QJsonDocument(manifest).toJson(QJsonDocument::Indented);
+    if (!addFileToZip(&zip, QStringLiteral("manifest.json"), mj)) {
+        mz_zip_writer_end(&zip);
+        QFile::remove(outputPath);
+        if (errorOut) *errorOut = QStringLiteral("manifest.json zip write failed");
+        emit exportFinished(false, outputPath, QStringLiteral("manifest write failed"));
+        return false;
+    }
 
-    // Add overrides
-    if (options.includeConfigs && !options.configOverridesPath.isEmpty()) {
-        QDir configDir(options.configOverridesPath);
-        if (configDir.exists()) {
-            auto files = configDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
-            for (const auto& fi : files) {
-                QString relPath = "overrides/" + fi.fileName();
-                addLocalFileToZip(&zip, relPath, fi.absoluteFilePath());
-            }
+    emit exportProgress(50, QStringLiteral("Writing modlist.html..."));
+    const QString html = QStringLiteral("<html><body><h1>")
+        + options.packName.toHtmlEscaped() + QStringLiteral("</h1>\n") + generateModListHtml(mods)
+        + QStringLiteral("</body></html>");
+    if (!addFileToZip(&zip, QStringLiteral("modlist.html"), html.toUtf8())) {
+        mz_zip_writer_end(&zip);
+        QFile::remove(outputPath);
+        if (errorOut) *errorOut = QStringLiteral("modlist.html zip write failed");
+        emit exportFinished(false, outputPath, QStringLiteral("modlist write failed"));
+        return false;
+    }
+
+    if (options.includeConfigs && !options.configOverridesPath.trimmed().isEmpty()
+        && QFileInfo::exists(options.configOverridesPath.trimmed())) {
+        if (!addDirectoryTreeToZip(&zip,
+                options.configOverridesPath.trimmed(),
+                QStringLiteral("overrides/"))) {
+            mz_zip_writer_end(&zip);
+            QFile::remove(outputPath);
+            if (errorOut) *errorOut = QStringLiteral("overrides zip failed");
+            emit exportFinished(false, outputPath, QStringLiteral("overrides failed"));
+            return false;
         }
     }
 
     mz_zip_writer_finalize_archive(&zip);
     mz_zip_writer_end(&zip);
+    emit exportProgress(100, QStringLiteral("Done."));
     emit exportFinished(true, outputPath, QString());
     return true;
 }
@@ -350,7 +545,9 @@ bool PackExporter::exportServerPack(const QVector<ModInfo>& allMods,
         metaObj["downloadUrl"] = mod.downloadUrl;
         metaObj["author"] = mod.author;
         QByteArray metaData = QJsonDocument(metaObj).toJson(QJsonDocument::Compact);
-        addFileToZip(&zip, (QString("mods/") + mod.filename + ".meta.json").toUtf8(), metaData);
+        addFileToZip(&zip,
+            QStringLiteral("mods/%1.meta.json").arg(mod.filename),
+            metaData);
 
         // Since we don't have the actual mod JAR files locally (they're downloaded during
         // the download phase to a separate directory), we include the .meta.json as a
@@ -391,6 +588,78 @@ bool PackExporter::exportServerPack(const QVector<ModInfo>& allMods,
                        << "| Client-only skipped:" << clientOnlySkipped;
 
     return true;
+}
+
+QString PackExporter::suggestedLoaderVersion(const QString& loader, const QString& mcVersion) {
+    const QString lw = loader.trimmed().toLower();
+    const QString mc = mcVersion.trimmed();
+    if (mc.isEmpty())
+        return {};
+
+    if (lw == QLatin1String("fabric") || lw == QLatin1String("quilt")) {
+        const QUrl metaUrl(
+            lw == QLatin1String("fabric")
+                ? QStringLiteral("https://meta.fabricmc.net/v2/versions/loader/%1").arg(mc)
+                : QStringLiteral("https://meta.quiltmc.org/v3/versions/loader/%1").arg(mc));
+
+        QNetworkAccessManager nam;
+        QNetworkRequest req(metaUrl);
+        req.setHeader(QNetworkRequest::UserAgentHeader,
+            QStringLiteral("helloworldx64/CraftPacker/3.0.0"));
+        QNetworkReply* reply = nam.get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            reply->deleteLater();
+            return {};
+        }
+        const QByteArray body = reply->readAll();
+        reply->deleteLater();
+
+        QJsonParseError parseErr{};
+        QJsonDocument doc = QJsonDocument::fromJson(body, &parseErr);
+        if (parseErr.error != QJsonParseError::NoError || !doc.isArray())
+            return {};
+
+        const QJsonArray arr = doc.array();
+        if (lw == QLatin1String("fabric")) {
+            for (const auto& entry : arr) {
+                QJsonObject lo = entry.toObject().value(QStringLiteral("loader")).toObject();
+                if (!lo.value(QStringLiteral("stable")).toBool(false))
+                    continue;
+                const QString v = lo.value(QStringLiteral("version")).toString();
+                if (!v.isEmpty())
+                    return v;
+            }
+            for (const auto& entry : arr) {
+                const QString v =
+                    entry.toObject().value(QStringLiteral("loader")).toObject().value(QStringLiteral("version")).toString();
+                if (!v.isEmpty())
+                    return v;
+            }
+        } else {
+            // Quilt: skip obvious pre-release tags when possible
+            for (const auto& entry : arr) {
+                const QString v =
+                    entry.toObject().value(QStringLiteral("loader")).toObject().value(QStringLiteral("version")).toString();
+                if (v.isEmpty())
+                    continue;
+                if (v.contains(QLatin1String("beta"), Qt::CaseInsensitive)
+                    || v.contains(QLatin1String("alpha"), Qt::CaseInsensitive))
+                    continue;
+                return v;
+            }
+            for (const auto& entry : arr) {
+                const QString v =
+                    entry.toObject().value(QStringLiteral("loader")).toObject().value(QStringLiteral("version")).toString();
+                if (!v.isEmpty())
+                    return v;
+            }
+        }
+    }
+    return {};
 }
 
 bool PackExporter::canWriteTo(const QString& path) {

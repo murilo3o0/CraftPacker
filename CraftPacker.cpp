@@ -1979,6 +1979,11 @@ std::optional<ModInfo> CraftPacker::getModInfo(const QString& projectIdOrSlug,
                 info.clientSide = projObj["client_side"].toString();
                 info.serverSide = projObj["server_side"].toString();
                 info.fileSize = fileObj["size"].toVariant().toLongLong();
+                {
+                    QJsonObject fh = fileObj.value("hashes").toObject();
+                    info.sha1 = fh.value("sha1").toString().toLower();
+                    info.sha512 = fh.value("sha512").toString().toLower();
+                }
                 
                 // Populate dependencies from BOTH the version object and the dedicated /dependencies endpoint
                 QJsonArray versionDeps = verObj["dependencies"].toArray();
@@ -2191,6 +2196,11 @@ std::optional<ModInfo> CraftPacker::resolveDependencyLocally(const QString& proj
                 info.clientSide = projObj["client_side"].toString();
                 info.serverSide = projObj["server_side"].toString();
                 info.fileSize = fo["size"].toVariant().toLongLong();
+                {
+                    QJsonObject fh = fo.value("hashes").toObject();
+                    info.sha1 = fh.value("sha1").toString().toLower();
+                    info.sha512 = fh.value("sha512").toString().toLower();
+                }
                 info.dependencies = vo["dependencies"].toArray();
                 return info;
             }
@@ -2430,10 +2440,25 @@ void CraftPacker::exportToMrpack() {
     if (savePath.isEmpty()) return;
     opts.outputPath = savePath;
 
-    opts.mcVersion = m_mcVersionEntry->text();
-    opts.loader = m_loaderComboBox->currentText();
+    opts.mcVersion = m_mcVersionEntry->text().trimmed();
+    opts.loader = m_loaderComboBox->currentText().trimmed();
     opts.packVersion = "1.0.0";
     opts.author = "CraftPacker User";
+    opts.localModsDirectory = m_dirEntry->text().trimmed();
+
+    opts.loaderVersion = PackExporter::suggestedLoaderVersion(opts.loader, opts.mcVersion).trimmed();
+    if (opts.loaderVersion.isEmpty()) {
+        bool lvOk = false;
+        const QString hint = (QStringLiteral("neoforge") == opts.loader.toLower())
+            ? QStringLiteral("NeoForge build version (combined with Minecraft in CurseForge loader id)")
+            : QStringLiteral("Loader version — Fabric/Quilt can often be queried automatically — "
+                               "Forge example: 47.4.0");
+        opts.loaderVersion = QInputDialog::getText(this, QObject::tr("Loader version"),
+            QObject::tr("%1").arg(hint),
+            QLineEdit::Normal, {}, &lvOk).trimmed();
+        if (!lvOk || opts.loaderVersion.isEmpty())
+            return;
+    }
 
     QVector<ModInfo> modList;
     for (const auto& m : m_results) modList.append(m);
@@ -2445,11 +2470,13 @@ void CraftPacker::exportToMrpack() {
             updateStatusBar(stage);
         }, Qt::UniqueConnection);
 
-    if (exporter.exportToMrpack(modList, opts)) {
+    QString exportErr;
+    if (exporter.exportToMrpack(modList, opts, &exportErr)) {
         updateStatusBar("Export complete: " + savePath);
     } else {
         updateStatusBar("Export failed!");
-        QMessageBox::warning(this, "Export Failed", "Failed to create .mrpack file.");
+        QMessageBox::warning(this, "Export Failed",
+            exportErr.isEmpty() ? QStringLiteral("Failed to create .mrpack file.") : exportErr);
     }
 }
 
@@ -2471,18 +2498,34 @@ void CraftPacker::exportToCurseForge() {
     if (savePath.isEmpty()) return;
     opts.outputPath = savePath;
 
-    opts.mcVersion = m_mcVersionEntry->text();
-    opts.loader = m_loaderComboBox->currentText();
+    opts.mcVersion = m_mcVersionEntry->text().trimmed();
+    opts.loader = m_loaderComboBox->currentText().trimmed();
     opts.packVersion = "1.0.0";
+    opts.author = "CraftPacker User";
+    opts.localModsDirectory = m_dirEntry->text().trimmed();
+
+    opts.loaderVersion = PackExporter::suggestedLoaderVersion(opts.loader, opts.mcVersion).trimmed();
+    if (opts.loaderVersion.isEmpty()) {
+        bool lvOk = false;
+        opts.loaderVersion = QInputDialog::getText(
+            this, QObject::tr("Loader version"),
+            QObject::tr("CurseForge manifest requires loader id (fabric-x.y.z, forge-x.y.z, "
+                          "neoForge uses neoforge-<mc>-<ver>). NeoForge \"version\" segment only here:"),
+            QLineEdit::Normal, {}, &lvOk).trimmed();
+        if (!lvOk || opts.loaderVersion.isEmpty())
+            return;
+    }
 
     QVector<ModInfo> modList;
     for (const auto& m : m_results) modList.append(m);
 
-    if (PackExporter::instance().exportToCurseForge(modList, opts)) {
+    QString exportErr;
+    if (PackExporter::instance().exportToCurseForge(modList, opts, &exportErr)) {
         updateStatusBar("Export complete: " + savePath);
     } else {
         updateStatusBar("Export failed!");
-        QMessageBox::warning(this, "Export Failed", "Failed to create CurseForge .zip file.");
+        QMessageBox::warning(this, "Export Failed",
+            exportErr.isEmpty() ? QStringLiteral("Failed to create CurseForge .zip file.") : exportErr);
     }
 }
 

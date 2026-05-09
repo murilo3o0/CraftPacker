@@ -35,6 +35,7 @@ struct ModInfo {
     QString gameVersion;
     QString author;
     qint64 fileSize = 0;
+    qint64 curseforgeFileId = 0;
     bool isDependency = false;
     QString originalQuery;
     QJsonArray dependencies;

@@ -105,6 +105,8 @@ void ModrinthAPI::getVersion(const QString& projectId, const QString& loader, co
         info.gameVersion = obj["game_version"].toString();
         info.fileSize = obj["file_size"].toVariant().toLongLong();
         info.dependencies = obj["dependencies"].toArray();
+        info.sha1 = obj["sha1"].toString().toLower();
+        info.sha512 = obj["sha512"].toString().toLower();
         emit modVersionResult(projectId, info);
         return;
     }
@@ -174,6 +176,11 @@ void ModrinthAPI::getVersion(const QString& projectId, const QString& loader, co
                         info.serverSide = serverSide;
                         info.fileSize = file["size"].toVariant().toLongLong();
                         info.dependencies = verObj["dependencies"].toArray();
+                        {
+                            QJsonObject fh = file.value("hashes").toObject();
+                            info.sha1 = fh.value("sha1").toString().toLower();
+                            info.sha512 = fh.value("sha512").toString().toLower();
+                        }
 
                         // Cache the result
                         QJsonObject cacheObj;
@@ -189,6 +196,8 @@ void ModrinthAPI::getVersion(const QString& projectId, const QString& loader, co
                         cacheObj["server_side"] = info.serverSide;
                         cacheObj["file_size"] = (qint64)info.fileSize;
                         cacheObj["dependencies"] = info.dependencies;
+                        cacheObj["sha1"] = info.sha1;
+                        cacheObj["sha512"] = info.sha512;
                         CacheManager::instance().put(
                             "version:" + projectId + ":" + loader + ":" + gameVersion,
                             QJsonDocument(cacheObj)

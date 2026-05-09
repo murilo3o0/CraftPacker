@@ -155,6 +155,7 @@ void CurseForgeAPI::getModFile(const QString& modId, const QString& loader, cons
 
                 // Parse dependencies
                 QJsonArray deps = file["dependencies"].toArray();
+                info.curseforgeFileId = file["id"].toVariant().toLongLong();
                 info.dependencies = deps;
 
                 emit fileResult(modId, info);

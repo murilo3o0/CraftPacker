@@ -56,18 +56,32 @@ if errorlevel 1 (
 )
 popd
 
+set "BUILT_EXE="
+if exist "%ROOT%\build_static\Release\CraftPacker.exe" set "BUILT_EXE=%ROOT%\build_static\Release\CraftPacker.exe"
+if not defined BUILT_EXE if exist "%ROOT%\build_static\CraftPacker.exe" set "BUILT_EXE=%ROOT%\build_static\CraftPacker.exe"
+if not defined BUILT_EXE (
+    echo ERROR: CraftPacker.exe not found under build_static (Ninja uses build_static\; VS multi-config uses build_static\Release\).
+    goto :fail
+)
+
 echo.
 echo ============================================
-echo Build output: %ROOT%\build_static\Release\CraftPacker.exe
+echo Build output: %BUILT_EXE%
 echo ============================================
 echo Verifying dependencies (expect only system DLLs)...
-pushd "%ROOT%\build_static\Release"
-dumpbin /dependents CraftPacker.exe | findstr /i "\.dll"
-popd
+for %%I in ("%BUILT_EXE%") do (
+    pushd "%%~dpI"
+    dumpbin /dependents "%%~nxI" 2>nul | findstr /i "\.dll"
+    popd
+)
 
 echo.
 if not exist "%ROOT%\dist" mkdir "%ROOT%\dist"
-copy /Y "%ROOT%\build_static\Release\CraftPacker.exe" "%ROOT%\dist\CraftPacker_v3.exe" >nul
+copy /Y "%BUILT_EXE%" "%ROOT%\dist\CraftPacker_v3.exe" >nul
+if errorlevel 1 (
+    echo ERROR: Copy to dist failed.
+    goto :fail
+)
 echo Shipped: %ROOT%\dist\CraftPacker_v3.exe
 for %%I in ("%ROOT%\dist\CraftPacker_v3.exe") do echo Size: %%~zI bytes
 

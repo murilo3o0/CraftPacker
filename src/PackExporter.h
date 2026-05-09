@@ -21,6 +21,8 @@ struct ExportOptions {
     bool includeConfigs = false;
     QString configOverridesPath;
     QString outputPath;
+    /** Folder where mod .jar files may already exist (for hashing when exporting .mrpack). */
+    QString localModsDirectory;
 };
 
 class PackExporter : public QObject {
@@ -48,6 +50,9 @@ public:
     // Test if a path is writable before export
     static bool canWriteTo(const QString& path);
 
+    /** Best-effort stable loader/library version string for manifests (Fabric/Quilt from meta APIs). Empty if unknown. */
+    static QString suggestedLoaderVersion(const QString& loader, const QString& mcVersion);
+
 signals:
     void exportProgress(int percent, const QString& stage);
     void exportFinished(bool success, const QString& path, const QString& error);
@@ -64,7 +69,8 @@ private:
 
     // Generate CurseForge manifest.json content
     QJsonObject generateCFManifest(const QVector<ModInfo>& mods,
-                                    const ExportOptions& options);
+                                    const ExportOptions& options,
+                                    QString* errorMessage = nullptr);
 
     // Generate modlist.html for CF packs
     QString generateModListHtml(const QVector<ModInfo>& mods);
