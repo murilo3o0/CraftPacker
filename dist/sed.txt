@@ -1,0 +1,23 @@
+[Version]
+Class=IEXPRESS
+SEDVersion=3
+[Options]
+PackagePurpose=InstallApp
+ShowInstallProgramWindow=0
+HideExtractAnimation=0
+UseLongFileName=1
+InsideCompressed=0
+CAB_FixedSize=0
+CancelPrompt=No
+ExtractOnly=1
+SourceFileList=CraftPacker Package
+[SourceFiles]
+SourceFiles=CraftPacker Package
+[SourceFiles.CraftPacker Package]
+%FILE0%=C:\projects\craftpacker\CraftPacker-main\build
+[Strings]
+AppName=CraftPacker v3
+PostInstallCmd=<None>
+InstallPrompt=
+RunProgram=CraftPacker.exe
+DisplayLicense=N

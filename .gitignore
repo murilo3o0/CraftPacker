@@ -1,0 +1,26 @@
+# Build artifacts
+build/
+build_static/
+*.exe
+*.zip
+*.dll
+
+# Qt static build
+Qt6_static/
+
+# IDE
+.vscode/
+.idea/
+*.user
+
+# Package managers
+vcpkg/
+
+# CMake downloads
+cmake.zip
+cmake_portable/
+
+# Misc
+*.log
+*.tmp
+miniz_impl.cpp

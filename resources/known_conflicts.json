@@ -1,0 +1,161 @@
+{
+  "version": 3,
+  "conflicts": [
+    {
+      "mods": ["sodium", "optifine", "optifabric", "rubidium", "embeddium", "vulkanmod"],
+      "reason": "Rendering engine collision. You can only use ONE core rendering optimization mod.",
+      "severity": "high"
+    },
+    {
+      "mods": ["starlight", "phosphor"],
+      "reason": "Lighting engine collision. Both rewrite the light engine. Choose one.",
+      "severity": "high"
+    },
+    {
+      "mods": ["jei", "rei", "emi"],
+      "reason": "Overlapping recipe viewers. They will overlap on screen and cause lag. Choose one.",
+      "severity": "medium"
+    },
+    {
+      "mods": ["iris", "optifine", "optifabric", "oculus"],
+      "reason": "Shader pipeline collision. Choose either Iris/Oculus OR Optifine.",
+      "severity": "high"
+    },
+    {
+      "mods": ["betterfps", "sodium", "rubidium"],
+      "reason": "Performance mod collision. BetterFPS is for legacy versions, Sodium/Rubidium are modern.",
+      "severity": "high"
+    },
+    {
+      "mods": ["fabric api", "forge api", "quilt api"],
+      "reason": "Mod loader mismatch. You cannot mix mods from different base loaders.",
+      "severity": "high"
+    },
+    {
+      "mods": ["valkyrienskies", "create aeronautics"],
+      "reason": "Physics engine collision. Both attempt to make blocks move with custom physics.",
+      "severity": "high"
+    },
+    {
+      "mods": ["xaeros minimap", "journeymap", "voxelmap"],
+      "reason": "Multiple minimaps installed. This wastes resources and clutters the screen.",
+      "severity": "low"
+    },
+    {
+      "mods": ["lithium", "phosphor", "radon"],
+      "reason": "Performance optimization overlap. Choose compatible set.",
+      "severity": "medium"
+    },
+    {
+      "mods": ["betterfpsdist", "sodium", "lithium"],
+      "reason": "BetterFPS distance calculation conflicts with Sodium/Lithium.",
+      "severity": "medium"
+    },
+    {
+      "mods": ["appleskin", "hud", "neat"],
+      "reason": "Multiple HUD mods may overlap.",
+      "severity": "low"
+    },
+    {
+      "mods": ["worldedit", "worldeditcui"],
+      "reason": "WorldEdit CUI requires WorldEdit to function.",
+      "severity": "low"
+    },
+    {
+      "mods": ["dynmap", "bluemap", "squaremap", "pl3xmap"],
+      "reason": "Multiple map rendering tools. Choose only one.",
+      "severity": "medium"
+    },
+    {
+      "mods": ["customskinloader", "skinlayer3d"],
+      "reason": "Both modify player skin rendering.",
+      "severity": "low"
+    },
+    {
+      "mods": ["crafttweaker", "kubejs"],
+      "reason": "Both are recipe/game modification frameworks. Incompatible scripts.",
+      "severity": "high"
+    },
+    {
+      "mods": ["bettercombat", "bettercombatskill"],
+      "reason": "Both modify combat mechanics.",
+      "severity": "low"
+    },
+    {
+      "mods": ["betteranimalsplus", "alexsmobs"],
+      "reason": "Both add mob entities to the world.",
+      "severity": "low"
+    },
+    {
+      "mods": ["recording", "replaymod", "minerecorder"],
+      "reason": "Multiple recording mods. Choose only one.",
+      "severity": "low"
+    },
+    {
+      "mods": ["optifine", "twilightforest"],
+      "reason": "OptiFine breaks Twilight Forest boss rendering and portals.",
+      "severity": "medium"
+    },
+    {
+      "mods": ["optifine", "create"],
+      "reason": "OptiFine completely breaks Create's rendering of moving contraptions.",
+      "severity": "high"
+    },
+    {
+      "mods": ["sodium", "canvas"],
+      "reason": "Canvas is a renderer replacement. It is entirely incompatible with Sodium.",
+      "severity": "high"
+    },
+    {
+      "mods": ["dashloader", "krypton"],
+      "reason": "Networking optimization overlap. Will cause server disconnects.",
+      "severity": "high"
+    }
+  ],
+  "known_compatibles": [
+    {
+      "mods": ["cloth-config", "fabric-api", "architectury-api"],
+      "reason": "These are standard API/library mods that are designed to work together."
+    },
+    {
+      "mods": ["sodium", "lithium", "phosphor", "starlight", "ferritecore", "krypton"],
+      "reason": "These performance mods from CaffeineMC are designed to be compatible."
+    },
+    {
+      "mods": ["sodium", "iris"],
+      "reason": "Sodium and Iris are explicitly compatible — Iris depends on Sodium."
+    },
+    {
+      "mods": ["fabric-api", "cloth-config"],
+      "reason": "Cloth Config API is a standard library used by many Fabric mods."
+    },
+    {
+      "mods": ["fabric-api", "architectury-api"],
+      "reason": "Architectury API is a cross-loader library that works with Fabric API."
+    },
+    {
+      "mods": ["cloth-config", "architectury-api"],
+      "reason": "Both are standard library APIs and are designed to be compatible."
+    },
+    {
+      "mods": ["fabric-api", "modmenu"],
+      "reason": "Mod Menu is a standard Fabric mod that requires Fabric API."
+    },
+    {
+      "mods": ["sodium-extra", "sodium", "iris"],
+      "reason": "Sodium Extra requires Sodium and Iris and is fully compatible."
+    },
+    {
+      "mods": ["create", "flywheel"],
+      "reason": "Flywheel is a rendering library required by Create."
+    },
+    {
+      "mods": ["betterend", "betternether"],
+      "reason": "Both are worldgen mods from the same team and are compatible."
+    },
+    {
+      "mods": ["adorn", "campanion"],
+      "reason": "Decorational mods that are compatible with each other."
+    }
+  ]
+}

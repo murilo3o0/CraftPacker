@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="known_conflicts.json">resources/known_conflicts.json</file>
+    </qresource>
+</RCC>

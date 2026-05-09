@@ -1,0 +1,7 @@
+;!@Install@!UTF-8!
+Title="CraftPacker v3 - Modpack Creation Studio"
+BeginPrompt=""
+RunProgram="CraftPacker.exe"
+Directory="CraftPacker_v3"
+GUIMode="1"
+;!@InstallEnd@!
