@@ -5,7 +5,7 @@ title CraftPacker — static release build
 
 set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"
-set "VCPKG_ROOT=%ROOT%\..\vcpkg"
+for %%I in ("%ROOT%\..\vcpkg") do set "VCPKG_ROOT=%%~fI"
 set "CMAKE_EXE=C:\projects\craftpacker\cmake_portable\cmake-4.3.2-windows-x86_64\bin\cmake.exe"
 if not exist "%CMAKE_EXE%" set "CMAKE_EXE=cmake"
 
