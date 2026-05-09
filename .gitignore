@@ -23,4 +23,4 @@ cmake_portable/
 # Misc
 *.log
 *.tmp
-miniz_impl.cpp
+deploy_release/

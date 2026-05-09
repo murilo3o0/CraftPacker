@@ -1,66 +1,81 @@
 @echo off
+setlocal EnableExtensions
 chcp 65001 >nul
-title CraftPacker Static Build
+title CraftPacker — static release build
+
+set "ROOT=%~dp0"
+set "ROOT=%ROOT:~0,-1%"
+set "VCPKG_ROOT=%ROOT%\..\vcpkg"
+set "CMAKE_EXE=C:\projects\craftpacker\cmake_portable\cmake-4.3.2-windows-x86_64\bin\cmake.exe"
+if not exist "%CMAKE_EXE%" set "CMAKE_EXE=cmake"
 
 echo ============================================
-echo  CraftPacker v3 - STATIC BUILD (Standalone)
+echo  CraftPacker v3 — STATIC build (standalone exe)
 echo ============================================
 echo.
 
-REM Check if vcpkg installed QtBase static
-if not exist "C:\projects\craftpacker\vcpkg\installed\x64-windows-static\lib\Qt6Core.lib" (
-    echo ERROR: Static Qt6 not found. Run first:
-    echo   C:\projects\craftpacker\vcpkg\vcpkg install qtbase[core,gui,widgets,network]:x64-windows-static
-    echo.
-    echo This build step is currently running in background.
-    echo Wait for it to finish, then run this script again.
-    pause
-    exit /b 1
+if not exist "%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" (
+    echo ERROR: vcpkg toolchain not found:
+    echo   %VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
+    echo Set VCPKG_ROOT in this script if your clone is elsewhere.
+    goto :fail
 )
 
-echo [1/3] Setting up VS 2022 environment...
+if not exist "%VCPKG_ROOT%\installed\x64-windows-static\lib\Qt6Core.lib" (
+    echo ERROR: Static Qt6 not found. Install once from vcpkg root:
+    echo   vcpkg install qtbase[core,gui,widgets,network]:x64-windows-static
+    goto :fail
+)
+
+echo [1/3] MSVC x64 environment...
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-if %ERRORLEVEL% neq 0 (
-    echo ERROR: Failed to set up VS environment
-    pause
-    exit /b 1
+if errorlevel 1 (
+    echo ERROR: vcvars64.bat failed — install VS 2022 Build Tools with C++ workload.
+    goto :fail
 )
 
-echo [2/3] Configuring with static Qt6...
-cmake -B build_static -S . ^
-    -DCMAKE_TOOLCHAIN_FILE=C:/projects/craftpacker/vcpkg/scripts/buildsystems/vcpkg.cmake ^
+echo [2/3] CMake configure — vcpkg toolchain, x64-windows-static, /MT...
+pushd "%ROOT%"
+"%CMAKE_EXE%" -B build_static -S . ^
+    -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT:\=/%/scripts/buildsystems/vcpkg.cmake ^
     -DVCPKG_TARGET_TRIPLET=x64-windows-static ^
     -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
     -DCMAKE_BUILD_TYPE=Release
-if %ERRORLEVEL% neq 0 (
-    echo ERROR: CMake configure failed
-    pause
-    exit /b 1
+if errorlevel 1 (
+    popd
+    echo ERROR: CMake configure failed.
+    goto :fail
 )
 
-echo [3/3] Building statically linked CraftPacker.exe...
-cmake --build build_static --config Release
-if %ERRORLEVEL% neq 0 (
-    echo ERROR: Build failed
-    pause
-    exit /b 1
+echo [3/3] Building Release...
+"%CMAKE_EXE%" --build build_static --config Release
+if errorlevel 1 (
+    popd
+    echo ERROR: Build failed.
+    goto :fail
 )
+popd
 
 echo.
 echo ============================================
-echo  SUCCESS! Static .exe created at:
-echo  %~dp0build_static\Release\CraftPacker.exe
+echo Build output: %ROOT%\build_static\Release\CraftPacker.exe
 echo ============================================
-echo Verifying no DLL dependencies...
-cd build_static\Release
+echo Verifying dependencies (expect only system DLLs)...
+pushd "%ROOT%\build_static\Release"
 dumpbin /dependents CraftPacker.exe | findstr /i "\.dll"
+popd
+
 echo.
-echo Copying to dist folder...
-if not exist "%~dp0dist" mkdir "%~dp0dist"
-copy /Y CraftPacker.exe "%~dp0dist\CraftPacker_v3.exe"
+if not exist "%ROOT%\dist" mkdir "%ROOT%\dist"
+copy /Y "%ROOT%\build_static\Release\CraftPacker.exe" "%ROOT%\dist\CraftPacker_v3.exe" >nul
+echo Shipped: %ROOT%\dist\CraftPacker_v3.exe
+for %%I in ("%ROOT%\dist\CraftPacker_v3.exe") do echo Size: %%~zI bytes
+
 echo.
-echo FINAL: C:\projects\craftpacker\CraftPacker-main\dist\CraftPacker_v3.exe
-echo Size:
-for %%I in ("%~dp0dist\CraftPacker_v3.exe") do echo %%~zI bytes
-echo This is a SINGLE FILE. No DLLs. No extraction.
+echo Done.
+exit /b 0
+
+:fail
+echo.
 pause
+exit /b 1

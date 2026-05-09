@@ -1,110 +1,50 @@
-# CraftPacker (C++ Version)
+# CraftPacker
 
-A fast, native desktop application for bulk downloading Minecraft mods and their dependencies from Modrinth. Simply provide a list of mod names, and CraftPacker handles the rest, saving you time and effort when setting up new modpacks or updating existing ones.
+Native Windows app for assembling Minecraft mod lists: bulk search on Modrinth (and optionally CurseForge), dependency resolution, conflict hints, `.mrpack` export, and folder import—with a **standalone** Qt 6 / C++20 UI.
 
-This project is a complete rewrite of the original Python version in C++/Qt for maximum performance and a truly standalone experience.
+Downloads: [**Releases**](https://github.com/helloworldx64/CraftPacker/releases) — use **`CraftPacker_v3.exe`** (single executable, no extra DLLs).
 
+## Features
 
-https://github.com/user-attachments/assets/1cb2c2ec-1c82-4622-891c-47620447b0fa
+- **Modrinth-first workflow** — search, rank, resolve versions per loader/MC version (`User-Agent`: `helloworldx64/CraftPacker/3.0.0`).
+- **Dependency engine** — pulls required mods into the queue when possible.
+- **Conflict / overlap hints** — flags risky combinations before you launch the game.
+- **Export** — server-oriented packs and Modrinth-style `.mrpack` where applicable.
+- **Folder import** — rebuild a working list from an existing `mods` directory.
+- **CurseForge (optional)** — set an API key in settings or bake one in at compile time ([build docs](./docs/BUILDING.md)).
 
-## ✨ Key Features
+## Quick start (users)
 
-*   **Native Performance:** Built with C++ and the Qt framework for a fast and responsive experience.
-*   **Bulk Downloading:** Download dozens of mods from a simple text list.
-*   **Automatic Dependency Resolution:** Automatically finds, resolves, and downloads all required dependency mods.
-*   **Smart Search:** Intelligently searches Modrinth to find the correct mods, even with informal names.
-*   **Web Search Fallback:** If the API search fails, it uses DuckDuckGo to find the mod page, handling cases like "jei" for "Just Enough Items".
-*   **Import from Folder:** Generate a mod list by scanning an existing Minecraft mods folder.
-*   **Customizable:** Specify the exact Minecraft version and mod loader (Fabric, Forge, NeoForge, Quilt).
-*   **Right-Click Context Menus:** Open a mod's page directly on Modrinth or search for unfound mods on CurseForge.
-*   **Truly Standalone:** The final executable runs on Windows with no need for installers or external runtimes like Python or Java.
+1. Open **[Releases](https://github.com/helloworldx64/CraftPacker/releases)** and download **`CraftPacker_v3.exe`** from **Assets**.
+2. Run it (Windows SmartScreen may warn on unsigned binaries — choose *More info* → *Run anyway* if you trust the source).
 
-## 🚀 Getting Started
+No Qt install, ZIP extraction for the main exe, or Python runtime required for the official static build.
 
-### For Users (Easy Install)
+## Documentation
 
-This is the easiest way to get started and **does not require any programming tools**.
+| Document | Purpose |
+|----------|---------|
+| [**docs/BUILDING.md**](docs/BUILDING.md) | Static **and** developer builds (`build_static.bat`, vcpkg, `/MT`, optional `CF_API_KEY`) |
+| [**docs/USER_GUIDE.md**](docs/USER_GUIDE.md) | Full UI and feature reference |
 
-1.  Go to the [**Releases Page**](https://github.com/helloworldx64/CraftPacker/releases) on the right-hand side of this repository.
-2.  Download the latest `CraftPacker-vX.X.X.zip` file from the "Assets" section.
-3.  **Extract the .zip file** to a permanent location on your computer (like your Desktop or a new folder in Documents).
-4.  Open the new `CraftPacker` folder and run **`CraftPacker.exe`**. All required DLLs are included.
+## Building from source (summary)
 
-> [!IMPORTANT]
-> **Always extract the folder from the .zip file before running the application.** Running the `.exe` from inside the zip file will prevent it from finding its required files and it will not start.
+Maintainers publish a **static** binary using **vcpkg** `x64-windows-static` Qt plus **`CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`**.
 
-### For Developers (Building from Source)
+```bat
+build_static.bat
+```
 
-This method is for those who want to build the application from the source code, modify it, or contribute to the project.
+Output: `dist\CraftPacker_v3.exe`. Detailed steps and verification (`dumpbin`) are in [**docs/BUILDING.md**](docs/BUILDING.md).
 
-#### Prerequisites
-*   A C++ Compiler (e.g., MinGW or MSVC)
-*   **Qt 6 Framework** (Desktop development version, including Widgets and Network modules)
-*   **CMake** (Version 3.16 or higher)
+## Contributing
 
-#### Building the Project
-1.  **Clone the repository:**
-    ```
-    git clone https://github.com/helloworldx64/CraftPacker.git
-    cd CraftPacker
-    ```
+Issues and PRs are welcome: [Issues](https://github.com/helloworldx64/CraftPacker/issues).
 
-2.  **Configure and build with CMake:**
-    ```
-    # Create a build directory
-    cmake -S . -B build
+## License
 
-    # Compile the project
-    cmake --build build --config Release
-    ```
+MIT — see [`LICENSE`](LICENSE).
 
-3.  **Run the Executable:**
-    The compiled executable will be located in the build directory (e.g., `build/Release/CraftPacker.exe`). Before running, you must gather the necessary Qt DLLs.
+## Acknowledgements
 
-4.  **Deploying (Gathering DLLs):**
-    To create a portable package, use the Qt Deployment Tool. Open a Qt command prompt (e.g., "Qt 6.5.3 (MinGW)") and run the following commands:
-    ```
-    # Navigate to the folder containing your compiled .exe
-    cd build/Release
-
-    # Run the deployment tool on the executable
-    windeployqt CraftPacker.exe
-    ```
-    This will copy all required Qt DLLs and plugins into the folder, making it ready to be zipped and distributed.
-
-## 📖 How to Use
-
-1.  **Configure Settings:**
-    *   Enter your desired **Minecraft Version** (e.g., `1.20.1`).
-    *   Select the correct **Loader** (e.g., `fabric`).
-    *   Choose a **Download To** directory for your mods.
-
-2.  **Provide a Mod List:**
-    *   **Option A (Manual):** Type or paste mod names into the "Mod List" box (one per line).
-    *   **Option B (Import):** Click **"Import from Folder..."** to scan an existing mods folder.
-
-3.  **Search and Download:**
-    *   Click **"Search Mods"**. Found mods appear on the left, unfound on the right.
-    *   Click **"Download All Available"** or select specific mods and click **"Download Selected"**.
-
-## ❤️ Support the Project
-
-If you find CraftPacker helpful, your support is greatly appreciated!
-
-[![Donate with PayPal](https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png)](https://www.paypal.com/donate/?business=4UZWFGSW6C478&no_recurring=0&item_name=Donate+to+helloworldx64&currency_code=USD)
-
-## 🤝 Contributing
-
-Contributions are welcome! If you have suggestions or find a bug, please:
-*   Open an [issue](https://github.com/helloworldx64/CraftPacker/issues).
-*   Fork the repository and submit a pull request.
-
-## 📜 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-*   A huge thank you to the [**Modrinth**](https://modrinth.com/) team for their fantastic platform and free, open API.
-*   This application is built with the incredible [**Qt Framework**](https://www.qt.io/).
-
+[Modrinth](https://modrinth.com/) for the API, and [Qt](https://www.qt.io/) for the toolkit.

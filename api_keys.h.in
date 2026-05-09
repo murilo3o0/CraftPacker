@@ -1,0 +1,6 @@
+/* Intermediate file for CMake configure_file (@ONLY). The real header is
+ * generated into the build directory as api_keys.h (never commit api_keys.h). */
+#ifndef API_KEYS_H_IN_
+#define API_KEYS_H_IN_
+
+#endif /* API_KEYS_H_IN_ */
