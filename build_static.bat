@@ -21,11 +21,10 @@ if not exist "%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" (
     goto :fail
 )
 
-if not exist "%VCPKG_ROOT%\installed\x64-windows-static\lib\Qt6Core.lib" (
-    echo ERROR: Static Qt6 not found. Install once from vcpkg root:
-    echo   vcpkg install qtbase[core,gui,widgets,network]:x64-windows-static
-    goto :fail
-)
+
+echo Prerequisites: vcpkg.json pins Qt WITHOUT ICU — static EXE must not import icu*.dll from vcpkg.
+echo Pre-fetch deps optional: ..\vcpkg\vcpkg install --triplet x64-windows-static
+echo.
 
 echo [1/3] MSVC x64 environment...
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
@@ -68,7 +67,7 @@ echo.
 echo ============================================
 echo Build output: %BUILT_EXE%
 echo ============================================
-echo Verifying dependencies (expect only system DLLs)...
+echo Verifying dependencies (expect ICU only from OS System32 via Qt winsdkicu)...
 dumpbin /dependents "%BUILT_EXE%" 2>nul | findstr /i ".dll"
 
 echo.

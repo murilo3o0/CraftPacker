@@ -5,6 +5,7 @@ High-level map of committed files (generated outputs like `build/` are gitignore
 ```text
 CraftPacker-main/
 ├── CMakeLists.txt          Project + targets (Qt 6, C++20, optional CurseForge key generation)
+├── vcpkg.json              Static-release manifest: Qt **qtbase** without vcpkg ICU feature
 ├── LICENSE
 ├── README.md               Overview, features, links
 ├── CraftPacker.cpp         Main UI and application wiring (large single TU)
@@ -19,7 +20,7 @@ CraftPacker-main/
 │   ├── REPOSITORY_LAYOUT.md
 │   └── USER_GUIDE.md       Full UI / feature reference
 ├── dist/                   Packaging helpers (IExpress SED, etc.); release binaries are **not** committed
-├── resources/              Icons, `known_conflicts.json`, Windows `.rc` if used
+├── resources/              `known_conflicts.json` (also embedded via **resources.qrc**; no runtime folder required)
 ├── scripts/
 │   ├── README.md           What each script does
 │   ├── Build-DynamicRelease.ps1   PowerShell 7: MSVC + shared Qt + windeployqt + zip

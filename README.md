@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/13ba675e-2505-4fea-8aab-e0b8199d04c3
 * **Server pack generation:** Filters client-only mods (shaders, OptiFine-style extras, minimaps, etc.) to export a cleaner, server-ready bundle.
 * **Debug and diagnostic reports:** Export plain-text reports explaining conflicts, missing dependencies, and how overlapping mods were classified.
 * **Customizable targets:** Pick the Minecraft version and loader (Fabric, Forge, NeoForge, Quilt).
-* **Single-file Windows build:** The recommended release is **`CraftPacker_v3.exe`**—a static MSVC build (Qt and CRT linked in). **No separate DLL folder; no Python or Java runtime.**  
+* **Single-file Windows build:** The recommended release is **`CraftPacker_v3.exe`**—a static MSVC build (Qt and CRT linked in). **No separate install folder of Qt/MSVC redistributable DLLs** (optional portable ZIP is only for the shared-Qt fallback). On Windows, Qt may still **import** **`icuuc.dll` / `icuin.dll`**, which the OS supplies from **`System32`** on supported versions—see [**docs/BUILDING.md**](docs/BUILDING.md). **No Python or Java runtime.**
   *Optional:* **`CraftPacker_v3_Portable.zip`** is a shared-Qt layout (extract the whole folder, then run **`CraftPacker.exe`** inside it).
 
 **CurseForge** search is optional and may require an API key in settings (or a key baked in at build time—see [docs/BUILDING.md](docs/BUILDING.md)).

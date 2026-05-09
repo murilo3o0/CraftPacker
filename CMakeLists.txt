@@ -168,10 +168,4 @@ install(TARGETS CraftPacker
     BUNDLE DESTINATION bin
 )
 
-# Post-build step: copy resources
-add_custom_command(TARGET CraftPacker POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-    "$<TARGET_FILE_DIR:CraftPacker>/resources"
-    COMMENT "Copying resources..."
-)
+

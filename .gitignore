@@ -1,6 +1,8 @@
 # Build artifacts
 build/
 build_static/
+build_vc/
+build_prefix/
 *.exe
 *.zip
 *.dll
@@ -25,3 +27,4 @@ cmake_portable/
 *.tmp
 deploy_release/
 dist/CraftPacker_Windows/
+vcpkg_installed/

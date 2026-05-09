@@ -21,14 +21,17 @@ Everything is statically linked:
 | Tool | Typical location | Role |
 |------|------------------|------|
 | VS 2022 Build Tools | `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\` | MSVC compiler (`cl.exe`) |
-| vcpkg with static Qt6 | `..\..\vcpkg\installed\x64-windows-static\` (relative to this repo root) | `Qt6Core`, `Qt6Gui`, `Qt6Widgets`, `Qt6Network` as static libs |
-| CMake | Prefer portable: `..\..\cmake_portable\cmake-*\bin\cmake.exe` next to your project tree | Generates build files |
+| vcpkg (clone next to CraftPacker) | **`..\\..\vcpkg\`** assumed by **`build_static.bat`** | Downloads/builds **`vcpkg.json`** manifest deps |
 
-Install static Qt via vcpkg (once, from your vcpkg root):
+Static Qt uses the repo **`vcpkg.json`**: **`qtbase`** is built with **`default-features`** disabled and curated features (**no **`icu`** from vcpkg**). Dependencies install into **`CraftPacker-main\vcpkg_installed\`** / **`build_static\vcpkg_installed\`** automatically on first CMake configure.
+
+Prefetch (optional):
 
 ```bat
-vcpkg install qtbase[core,gui,widgets,network]:x64-windows-static
+..\vcpkg\vcpkg install --triplet x64-windows-static
 ```
+
+(run from **`CraftPacker-main`**.)
 
 ### One-command build
 
@@ -38,7 +41,9 @@ From the repository root (`CraftPacker-main`):
 build_static.bat
 ```
 
-The script activates MSVC **`x64`**, configures CMake with the vcpkg toolchain and **`MultiThreaded`**, builds **Release**, runs **`dumpbin /dependents`** to list DLLs (you should see only Windows system DLLs), then copies the binary to **`dist\CraftPacker_v3.exe`**.
+The script activates MSVC **`x64`**, configures CMake with the vcpkg toolchain and **`MultiThreaded`**, builds **Release**, runs **`dumpbin /dependents`** to list DLLs, then copies the binary to **`dist\CraftPacker_v3.exe`**.
+
+Bundled **`resources\`** beside the exe is **not required**: conflict data ships inside the binary via **`resources.qrc`**.
 
 ### Equivalent manual commands
 
@@ -54,24 +59,30 @@ cmake -B build_static -S . ^
 cmake --build build_static --config Release
 ```
 
+With **Ninja** (common), the executable is **`build_static\CraftPacker.exe`** (no **`Release`** subfolder). With **VS generators**, expect **`build_static\Release\CraftPacker.exe`**.
+
 Adjust **`CMAKE_TOOLCHAIN_FILE`** if your **`vcpkg`** clone lives elsewhere (`%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake`).
 
 Artifacts:
 
 | Path | Description |
 |------|-------------|
-| `build_static\Release\CraftPacker.exe` | Immediate build output |
+| `build_static\CraftPacker.exe` or `build_static\Release\CraftPacker.exe` | Immediate build output (depends on CMake generator) |
 | `dist\CraftPacker_v3.exe` | Copy ready to publish |
 
-### Verification
+### Dependencies
 
-Only Windows system DLLs should appear among dependencies:
+Publish **only `dist\\CraftPacker_v3.exe`**: you do not ship **`resources\\`**, **`vcpkg_installed\\`**, or Qt/OpenSSL DLLs.
+
+**Qt and ICU on Windows.** Qt enables **winsdkicu**, so **`dumpbin /dependents`** often lists **`icuuc.dll`** / **`icuin.dll`**. Those are Windows system ICU binaries (under **`%SystemRoot%\\System32`** on supported Windows releases), not files you publish next to CraftPacker. You still must not ship third‑party MSVC/Qt redistributables copied out of vcpkg.
+
+Expect entries like **`KERNEL32.dll`**, **`USER32.dll`** — **not** `Qt6Core.dll`.
+
+### Verification
 
 ```bat
 dumpbin /dependents dist\CraftPacker_v3.exe | findstr /i "\.dll"
 ```
-
-Expect entries like **`KERNEL32.dll`**, **`USER32.dll`** — **not** `Qt6*.dll`.
 
 ### Optional: CurseForge API key at build time
 
