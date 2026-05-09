@@ -103,6 +103,22 @@ Faster iteration when Qt is installed as shared libs (official installer):
    windeployqt --release build\CraftPacker.exe
    ```
 
+### PowerShell 7 script (recommended on Windows)
+
+From **PowerShell 7**, after editing `-QtPath` if your kit differs:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-DynamicRelease.ps1
+```
+
+Optional:
+
+```powershell
+.\scripts\Build-DynamicRelease.ps1 -QtPath 'C:\Qt\6.11.0\msvc2022_64' -CMakePath 'C:\path\to\cmake.exe'
+```
+
+This runs **vcvars64**, configures **Ninja** + **Release**, builds, copies **`CraftPacker.exe`** and **`resources\`**, runs **`windeployqt --compiler-runtime`**, writes **`dist\CraftPacker_Windows\`**, and zips **`dist\CraftPacker_Windows_portable.zip`**.
+
 See the [Qt deployment documentation](https://doc.qt.io/qt-6/windows-deployment.html) for details.
 
 ---

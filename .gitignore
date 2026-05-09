@@ -24,3 +24,4 @@ cmake_portable/
 *.log
 *.tmp
 deploy_release/
+dist/CraftPacker_Windows/
