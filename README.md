@@ -1,8 +1,12 @@
 # CraftPacker
 
-Native Windows app for assembling Minecraft mod lists: bulk search on Modrinth (and optionally CurseForge), dependency resolution, conflict hints, `.mrpack` export, and folder import—with a **standalone** Qt 6 / C++20 UI.
+Native Windows app for assembling Minecraft mod lists: bulk search on Modrinth (and optionally CurseForge), dependency resolution, conflict hints, `.mrpack` export, and folder import—with Qt 6 / C++20 UI.
 
-Downloads: [**Releases**](https://github.com/helloworldx64/CraftPacker/releases) — use **`CraftPacker_v3.exe`** (single executable, no extra DLLs).
+Downloads: [**Releases → v3**](https://github.com/helloworldx64/CraftPacker/releases/tag/v3) — **`CraftPacker_v3.exe`** (single static exe, recommended) or **`CraftPacker_v3_Portable.zip`** (shared-Qt bundle; extract entirely before running).
+
+## Repository layout
+
+See [**docs/REPOSITORY_LAYOUT.md**](docs/REPOSITORY_LAYOUT.md) for what lives in **`src/`**, **`docs/`**, **`scripts/`**, build entry points at the repo root, and what is intentionally **not** committed.
 
 ## Features
 
@@ -15,15 +19,22 @@ Downloads: [**Releases**](https://github.com/helloworldx64/CraftPacker/releases)
 
 ## Quick start (users)
 
-1. Open **[Releases](https://github.com/helloworldx64/CraftPacker/releases)** and download **`CraftPacker_v3.exe`** from **Assets**.
-2. Run it (Windows SmartScreen may warn on unsigned binaries — choose *More info* → *Run anyway* if you trust the source).
+**Option A — one file**
 
-No Qt install, ZIP extraction for the main exe, or Python runtime required for the official static build.
+1. Open [**Releases → v3 → Assets**](https://github.com/helloworldx64/CraftPacker/releases/tag/v3).
+2. Download **`CraftPacker_v3.exe`**.
+3. Run it (SmartScreen may warn on unsigned binaries — *More info* → *Run anyway*).
+
+**Option B — portable ZIP (shared Qt build)**
+
+1. Download **`CraftPacker_v3_Portable.zip`** from the same page.
+2. **Extract the entire ZIP**, then run **`CraftPacker.exe`** in that folder so Qt DLLs and plugins stay beside the executable.
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
+| [**docs/REPOSITORY_LAYOUT.md**](docs/REPOSITORY_LAYOUT.md) | Folder / file map (**`src/`**, **`scripts/`**, what is gitignored) |
 | [**docs/BUILDING.md**](docs/BUILDING.md) | Static **and** developer builds (`build_static.bat`, vcpkg, `/MT`, optional `CF_API_KEY`) |
 | [**docs/USER_GUIDE.md**](docs/USER_GUIDE.md) | Full UI and feature reference |
 
