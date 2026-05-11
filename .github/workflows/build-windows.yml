@@ -13,7 +13,6 @@ jobs:
       DIST_DIR: ${{ github.workspace }}\dist
       QT_VERSION: 6.8.2
       QT_ARCH: win64_msvc2022_64
-      QT_ROOT: ${{ runner.temp }}\qt
 
     steps:
       - name: Checkout repository
@@ -33,14 +32,16 @@ jobs:
         shell: pwsh
         run: |
           # aqtinstall is more predictable here than the previously attempted jurplel action.
+          $qtRoot = Join-Path $env:RUNNER_TEMP 'qt'
           python -m pip install --upgrade pip aqtinstall
-          python -m aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH --outputdir $env:QT_ROOT -m qtbase
+          python -m aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH --outputdir $qtRoot -m qtbase
 
-          $qtMsvcDir = Join-Path $env:QT_ROOT "$env:QT_VERSION\$env:QT_ARCH"
+          $qtMsvcDir = Join-Path $qtRoot "$env:QT_VERSION\$env:QT_ARCH"
           if (-not (Test-Path (Join-Path $qtMsvcDir 'bin\windeployqt.exe'))) {
             throw "Qt installation is missing windeployqt.exe at $qtMsvcDir"
           }
 
+          "QT_ROOT=$qtRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "QT_MSVC_DIR=$qtMsvcDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $qtBinDir = Join-Path $qtMsvcDir 'bin'
           $qtBinDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
