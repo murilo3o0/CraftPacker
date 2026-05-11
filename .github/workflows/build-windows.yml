@@ -34,7 +34,7 @@ jobs:
           # aqtinstall is more predictable here than the previously attempted jurplel action.
           $qtRoot = Join-Path $env:RUNNER_TEMP 'qt'
           python -m pip install --upgrade pip aqtinstall
-          python -m aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH --outputdir $qtRoot -m qtbase
+          python -m aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH --outputdir $qtRoot
 
           $qtMsvcDir = Join-Path $qtRoot "$env:QT_VERSION\$env:QT_ARCH"
           if (-not (Test-Path (Join-Path $qtMsvcDir 'bin\windeployqt.exe'))) {
