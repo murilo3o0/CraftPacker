@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Windows EXE Dynamic
 
 on:
   workflow_dispatch:
@@ -16,36 +16,41 @@ jobs:
         with:
           arch: x64
 
-      - name: Clone and bootstrap vcpkg
-        shell: cmd
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git vcpkg
-          call vcpkg\bootstrap-vcpkg.bat
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtbase'
 
       - name: Configure CMake
         shell: cmd
         run: |
-          cmake -S . -B build_static ^
-            -DCMAKE_TOOLCHAIN_FILE=%CD%\vcpkg\scripts\buildsystems\vcpkg.cmake ^
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static ^
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
-            -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_PREFIX_PATH="%Qt6_DIR%\..\.."
 
       - name: Build
         shell: cmd
         run: |
-          cmake --build build_static --config Release
+          cmake --build build --config Release
 
-      - name: Prepare EXE
+      - name: Deploy Qt DLLs
         shell: cmd
         run: |
           if not exist dist mkdir dist
-          if exist build_static\Release\CraftPacker.exe copy /Y build_static\Release\CraftPacker.exe dist\CraftPacker_v3.exe
-          if exist build_static\CraftPacker.exe copy /Y build_static\CraftPacker.exe dist\CraftPacker_v3.exe
+
+          if exist build\Release\CraftPacker.exe copy /Y build\Release\CraftPacker.exe dist\CraftPacker.exe
+          if exist build\CraftPacker.exe copy /Y build\CraftPacker.exe dist\CraftPacker.exe
+
+          windeployqt dist\CraftPacker.exe
+
           dir dist
 
-      - name: Upload EXE
+      - name: Upload portable app
         uses: actions/upload-artifact@v4
         with:
-          name: CraftPacker_v3
-          path: dist/CraftPacker_v3.exe
+          name: CraftPacker-Windows-Portable
+          path: dist/**
