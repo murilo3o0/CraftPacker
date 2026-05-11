@@ -1,56 +1,118 @@
-name: Build Windows EXE Dynamic
+name: Build Windows Portable
 
 on:
+  # Allows running the packaging flow manually from the Actions tab.
   workflow_dispatch:
 
 jobs:
-  build:
+  build-windows-portable:
     runs-on: windows-latest
 
+    env:
+      BUILD_DIR: ${{ github.workspace }}\build
+      DIST_DIR: ${{ github.workspace }}\dist
+      QT_VERSION: 6.8.2
+      QT_ARCH: win64_msvc2022_64
+      QT_ROOT: ${{ runner.temp }}\qt
+
     steps:
-      - name: Checkout CraftPacker
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up MSVC
+      - name: Set up Python for aqtinstall
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up MSVC x64 environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.2'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          modules: 'qtbase'
+      - name: Install Qt with aqtinstall
+        shell: pwsh
+        run: |
+          # aqtinstall is more predictable here than the previously attempted jurplel action.
+          python -m pip install --upgrade pip aqtinstall
+          python -m aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH --outputdir $env:QT_ROOT -m qtbase
+
+          $qtMsvcDir = Join-Path $env:QT_ROOT "$env:QT_VERSION\$env:QT_ARCH"
+          if (-not (Test-Path (Join-Path $qtMsvcDir 'bin\windeployqt.exe'))) {
+            throw "Qt installation is missing windeployqt.exe at $qtMsvcDir"
+          }
+
+          "QT_MSVC_DIR=$qtMsvcDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $qtBinDir = Join-Path $qtMsvcDir 'bin'
+          $qtBinDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Show toolchain details
+        shell: pwsh
+        run: |
+          # Helpful diagnostics if the workflow ever needs troubleshooting.
+          cmake --version
+          ninja --version
+          cl
+          Write-Host "Qt kit: $env:QT_MSVC_DIR"
 
       - name: Configure CMake
-        shell: cmd
+        shell: pwsh
         run: |
-          cmake -S . -B build ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_PREFIX_PATH="%Qt6_DIR%\..\.."
+          # Use the shared Qt kit so the build stays fast, then deploy DLLs later with windeployqt.
+          cmake -S $env:GITHUB_WORKSPACE -B $env:BUILD_DIR -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$env:QT_MSVC_DIR" `
+            -DCRAFTPACKER_STATIC_MSVC_RUNTIME=OFF
 
-      - name: Build
-        shell: cmd
+      - name: Build Release
+        shell: pwsh
         run: |
-          cmake --build build --config Release
+          cmake --build $env:BUILD_DIR --config Release --parallel
 
-      - name: Deploy Qt DLLs
-        shell: cmd
+      - name: Assemble portable dist folder
+        shell: pwsh
         run: |
-          if not exist dist mkdir dist
+          # Search recursively so the workflow survives generator/layout differences.
+          if (Test-Path $env:DIST_DIR) {
+            Remove-Item $env:DIST_DIR -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $env:DIST_DIR | Out-Null
 
-          if exist build\Release\CraftPacker.exe copy /Y build\Release\CraftPacker.exe dist\CraftPacker.exe
-          if exist build\CraftPacker.exe copy /Y build\CraftPacker.exe dist\CraftPacker.exe
+          $exe = Get-ChildItem -Path $env:BUILD_DIR -Filter CraftPacker.exe -Recurse -File |
+            Sort-Object FullName |
+            Select-Object -First 1
 
-          windeployqt dist\CraftPacker.exe
+          if (-not $exe) {
+            throw "CraftPacker.exe was not found under $env:BUILD_DIR"
+          }
 
-          dir dist
+          Copy-Item $exe.FullName (Join-Path $env:DIST_DIR 'CraftPacker.exe') -Force
 
-      - name: Upload portable app
+          $windeployqt = Join-Path $env:QT_MSVC_DIR 'bin\windeployqt.exe'
+          if (-not (Test-Path $windeployqt)) {
+            throw "windeployqt.exe was not found at $windeployqt"
+          }
+
+          Push-Location $env:DIST_DIR
+          try {
+            # --compiler-runtime copies the MSVC runtime so the app opens on machines without Visual Studio.
+            & $windeployqt --release --compiler-runtime --no-translations .\CraftPacker.exe
+          }
+          finally {
+            Pop-Location
+          }
+
+          $buildInfo = @(
+            "Commit: $env:GITHUB_SHA"
+            "Qt: $env:QT_VERSION ($env:QT_ARCH)"
+            "Executable: $($exe.FullName)"
+          )
+          $buildInfo | Set-Content -Path (Join-Path $env:DIST_DIR 'build_info.txt')
+
+          Get-ChildItem -Path $env:DIST_DIR -Recurse | Select-Object FullName
+
+      - name: Upload portable artifact
         uses: actions/upload-artifact@v4
         with:
           name: CraftPacker-Windows-Portable
-          path: dist/**
+          path: ${{ env.DIST_DIR }}/**
+          if-no-files-found: error

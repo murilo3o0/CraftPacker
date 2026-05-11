@@ -80,9 +80,16 @@ endif()
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 find_package(Qt6 COMPONENTS Sql QUIET)
 
-# Force static linking (MSVC /MT flag) for standalone .exe
-if(MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+# Allow CI/local builds to choose the MSVC runtime model.
+# Official Qt desktop kits are built with the DLL runtime (/MD), while the
+# standalone static workflow can still override this to /MT when needed.
+option(CRAFTPACKER_STATIC_MSVC_RUNTIME "Link the MSVC runtime statically (/MT)" OFF)
+if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+    if(CRAFTPACKER_STATIC_MSVC_RUNTIME)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    else()
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL$<$<CONFIG:Debug>:Debug>")
+    endif()
 endif()
 
 # For SQLite caching - use bundled or system sqlite
@@ -167,5 +174,4 @@ install(TARGETS CraftPacker
     RUNTIME DESTINATION bin
     BUNDLE DESTINATION bin
 )
-
 
