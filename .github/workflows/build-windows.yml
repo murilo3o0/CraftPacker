@@ -2,31 +2,44 @@ name: Build Windows EXE
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout CraftPacker
         uses: actions/checkout@v4
 
-      - name: Checkout vcpkg
+      - name: Checkout vcpkg inside workspace
         uses: actions/checkout@v4
         with:
           repository: microsoft/vcpkg
-          path: ../vcpkg
+          path: vcpkg
 
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Build static CraftPacker
+      - name: Build CraftPacker with vcpkg static Qt
         shell: cmd
-        run: build_static.bat
+        run: |
+          cmake -S . -B build_static ^
+            -DCMAKE_TOOLCHAIN_FILE=%CD%\vcpkg\scripts\buildsystems\vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static ^
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
+            -DCMAKE_BUILD_TYPE=Release
+
+          cmake --build build_static --config Release
+
+      - name: Prepare dist
+        shell: cmd
+        run: |
+          if not exist dist mkdir dist
+          if exist build_static\Release\CraftPacker.exe copy /Y build_static\Release\CraftPacker.exe dist\CraftPacker_v3.exe
+          if exist build_static\CraftPacker.exe copy /Y build_static\CraftPacker.exe dist\CraftPacker_v3.exe
+          dir dist
 
       - name: Upload EXE
         uses: actions/upload-artifact@v4
