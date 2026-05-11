@@ -1,4 +1,5 @@
 name: Build Windows EXE
+
 on:
   workflow_dispatch:
 
@@ -10,18 +11,18 @@ jobs:
       - name: Checkout CraftPacker
         uses: actions/checkout@v4
 
-      - name: Checkout vcpkg inside workspace
-        uses: actions/checkout@v4
-        with:
-          repository: microsoft/vcpkg
-          path: vcpkg
-
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Build CraftPacker with vcpkg static Qt
+      - name: Clone and bootstrap vcpkg
+        shell: cmd
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git vcpkg
+          call vcpkg\bootstrap-vcpkg.bat
+
+      - name: Configure CMake
         shell: cmd
         run: |
           cmake -S . -B build_static ^
@@ -30,9 +31,12 @@ jobs:
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
             -DCMAKE_BUILD_TYPE=Release
 
+      - name: Build
+        shell: cmd
+        run: |
           cmake --build build_static --config Release
 
-      - name: Prepare dist
+      - name: Prepare EXE
         shell: cmd
         run: |
           if not exist dist mkdir dist
