@@ -1,0 +1,35 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout vcpkg
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          path: ../vcpkg
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build static CraftPacker
+        shell: cmd
+        run: build_static.bat
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: CraftPacker_v3
+          path: dist/CraftPacker_v3.exe
